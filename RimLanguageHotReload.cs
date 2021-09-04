@@ -59,10 +59,6 @@ namespace LordFanger
 
         private static readonly IDictionary<KeyedUniqueKey, LoadedLanguage.KeyedReplacement> _keyed = new Dictionary<KeyedUniqueKey, LoadedLanguage.KeyedReplacement>();
 
-        private static readonly IDictionary<string, IDictionary<string, Def>> _defsByFileName = new Dictionary<string, IDictionary<string, Def>>();
-
-        //private static readonly IDictionary<string, IDictionary<string, FieldInfo>> _fieldsByFullTypeName = new Dictionary<string, IDictionary<string, FieldInfo>>();
-
         private static DateTime _delayedFswTo;
 
         private static FileSystemWatcher _fsw;
@@ -112,14 +108,7 @@ namespace LordFanger
                                     var directoryName = def.GetType().Name;
                                     var fileName = def.fileName;
                                     var defName = def.defName;
-                                    if (!_defsByFileName.TryGetValue(fileName, out var defByDefName))
-                                    {
-                                        defByDefName = new Dictionary<string, Def>();
-                                        _defsByFileName[fileName] = defByDefName;
-                                    }
-
-                                    defByDefName[defName] = def;
-
+                                    
                                     var key = new DefUniqueKey(defName, Path.GetFileNameWithoutExtension(fileName), directoryName);
                                     if (!_definitions.ContainsKey(key)) _definitions.Add(key, def); // todo compare if equals
                                 }

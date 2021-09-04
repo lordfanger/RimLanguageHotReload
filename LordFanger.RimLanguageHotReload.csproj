@@ -12,8 +12,4 @@
 		</Reference>
 	</ItemGroup>
 
-	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
-		<Exec Command="xcopy S:\Programs\RimWorld\RimLanguageHotReload\bin\Release\net48\RimLanguageHotReload.dll S:\Hry\SteamLib\steamapps\common\RimWorld\Mods\RimLanguageHotReload\Assemblies\ /y" />
-	</Target>
-
 </Project>
