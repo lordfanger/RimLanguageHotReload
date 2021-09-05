@@ -10,6 +10,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml;
+using System.Xml.Linq;
 using Verse;
 
 namespace LordFanger
@@ -17,7 +18,6 @@ namespace LordFanger
     [StaticConstructorOnStartup]
     public static class RimLanguageHotReload
     {
-
         private readonly struct DefUniqueKey
         {
             public DefUniqueKey(string name, FileHandle file, string directoryName) : this(name, file.FileNameWithoutExtension, directoryName)
@@ -108,7 +108,7 @@ namespace LordFanger
                                     var directoryName = def.GetType().Name;
                                     var fileName = def.fileName;
                                     var defName = def.defName;
-                                    
+
                                     var key = new DefUniqueKey(defName, Path.GetFileNameWithoutExtension(fileName), directoryName);
                                     if (!_definitions.ContainsKey(key)) _definitions.Add(key, def); // todo compare if equals
                                 }
@@ -196,7 +196,10 @@ namespace LordFanger
             {
                 _changedFiles.TryRemove(filePath, out _);
             }
+
+            if (filePaths.Length == 0) return;
             UpdateFiles(filePaths.AsFiles());
+            GenLabel.ClearCache();
         }
 
         private static void UpdateFiles(IEnumerable<FileHandle> filePaths)
@@ -227,21 +230,13 @@ namespace LordFanger
                         return;
                     }
 
-                    var xml = new XmlDocument();
-                    try
-                    {
-                        var xmlContent = file.ReadAllText();
-                        xml.LoadXml(xmlContent);
-                    }
-                    catch (Exception)
-                    {
-                        return;
-                    }
+                    var xmlContent = file.ReadAllText();
+                    var xml = XDocument.Parse(xmlContent);
 
-                    var root = xml.DocumentElement;
+                    var root = xml.Root;
                     if (root == null) return;
 
-                    switch (root.Name)
+                    switch (root.Name.LocalName)
                     {
                         case "LanguageData":
                             UpdateLanguageData(file, directoryName, root);
@@ -253,14 +248,13 @@ namespace LordFanger
                 });
         }
 
-        private static void UpdateLanguageData(FileHandle file, string directoryName, XmlElement root)
+        private static void UpdateLanguageData(FileHandle file, string directoryName, XElement root)
         {
-            //BackstoryTranslations
-            foreach (XmlNode item in root.ChildNodes)
+            foreach (var item in root.Elements())
             {
                 if (item.NodeType != XmlNodeType.Element) continue;
 
-                var defFieldName = item.Name;
+                var defFieldName = item.Name.LocalName;
                 var tkeyMatch = Regex.Match(defFieldName, @"^(?<TKEY>[^\.]+\.[^\.]+)");
                 if (tkeyMatch.Success)
                 {
@@ -285,7 +279,8 @@ namespace LordFanger
             }
         }
 
-        private static void UpdateDefinition(string defName, string fieldPathRaw, FileHandle file, string directoryName, XmlNode item)
+
+        private static void UpdateDefinition(string defName, string fieldPathRaw, FileHandle file, string directoryName, XElement item)
         {
             var fieldPath = fieldPathRaw.Split('.');
 
@@ -297,7 +292,8 @@ namespace LordFanger
             UpdateDefinitionFieldByPath(def, fieldPath[0], fieldPath, 1, item, null);
         }
 
-        private static void UpdateDefinitionFieldByPath(object obj, string fieldName, string[] fieldPath, int fieldPathOffset, XmlNode item, Attribute[] fieldAttributes)
+
+        private static void UpdateDefinitionFieldByPath(object obj, string fieldName, string[] fieldPath, int fieldPathOffset, XElement item, Attribute[] fieldAttributes)
         {
             fieldAttributes ??= Array.Empty<Attribute>();
             var objType = obj.GetType();
@@ -348,7 +344,7 @@ namespace LordFanger
 
                 if (newValue == null)
                 {
-                    // value is TODO = skip
+                    // TODO value is TODO = skip
                     return;
                 }
 
@@ -369,7 +365,8 @@ namespace LordFanger
             }
         }
 
-        private static bool TryUpdateInUntranslantedCollection(object obj, string fieldName, string[] fieldPath, int fieldPathOffset, XmlNode item, Attribute[] fieldAttributes)
+
+        private static bool TryUpdateInUntranslantedCollection(object obj, string fieldName, string[] fieldPath, int fieldPathOffset, XElement item, Attribute[] fieldAttributes)
         {
             if (!(obj is ICollection collection)) return false;
 
@@ -382,7 +379,7 @@ namespace LordFanger
 
                     if (newValue == null)
                     {
-                        // value is TODO = skip
+                        // TODO value is TODO = skip
                         return false;
                     }
 
@@ -446,16 +443,11 @@ namespace LordFanger
             }
 
             return false;
-
-            string PathSoFar()
-            {
-                return $"{string.Join("/", fieldPath.Take(fieldPathOffset + 1).ToArray())} ({item.Name})";
-            }
         }
 
-        private static void UpdateKeyed(FileHandle file, XmlNode item)
+        private static void UpdateKeyed(FileHandle file, XElement item)
         {
-            var keyedName = item.Name;
+            var keyedName = item.Name.LocalName;
             if (!_keyed.TryGetValue(new KeyedUniqueKey(keyedName, file.FilePathLower), out var keyed)) return;
 
             var oldValue = keyed.value;
@@ -475,7 +467,8 @@ namespace LordFanger
             keyed.isPlaceholder = string.IsNullOrWhiteSpace(newValue);
         }
 
-        private static void TryClearCachedValue(object obj, IDictionary<string, FieldInfo> fieldByName, string fieldName, XmlNode item)
+
+        private static void TryClearCachedValue(object obj, IDictionary<string, FieldInfo> fieldByName, string fieldName, XElement item)
         {
             var cachedFieldName = "cached" + fieldName.CapitalizeFirst();
             if (fieldByName.TryGetValue(cachedFieldName, out var cachedField))
@@ -484,23 +477,24 @@ namespace LordFanger
             }
         }
 
-        private static void UpdateBackstories(XmlElement root)
+
+        private static void UpdateBackstories(XElement root)
         {
-            foreach (XmlNode item in root.ChildNodes)
+            foreach (var item in root.Elements())
             {
                 if (item.NodeType != XmlNodeType.Element) continue;
-                var backstoryName = item.Name;
+                var backstoryName = item.Name.LocalName;
                 if (!_backstories.TryGetValue(backstoryName, out var backstory))
                 {
                     continue;
                 }
 
                 var fields = Util.GetTypeInstanceFieldsByName(backstory.GetType());
-                foreach (XmlNode fieldNode in item.ChildNodes)
+                foreach (var fieldNode in item.Elements())
                 {
                     if (fieldNode.NodeType != XmlNodeType.Element) continue;
 
-                    var rawFieldName = fieldNode.Name;
+                    var rawFieldName = fieldNode.Name.LocalName;
                     var fieldName = rawFieldName == "desc" ? "baseDesc" : rawFieldName;
                     if (!fields.TryGetValue(fieldName, out var fieldInfo))
                     {
@@ -535,9 +529,10 @@ namespace LordFanger
             }
         }
 
-        private static string GetNewValue(XmlNode item)
+        private static string GetNewValue(XElement item)
         {
-            var value = item.InnerXml;
+            var value = item.Value;
+
             var unescapedValue = value.Replace("\\n", "\n"); // only escape character used
             return unescapedValue == "TODO" ? null : unescapedValue;
         }
