@@ -29,3 +29,7 @@ The Horlivec is still in development. There are some goals that will very likely
 - Applying changes to Verse.Thing objects in game. They are composed of multiple Verse.Defs and very likely cached.
 
 - Allow changes to Rules system. (e.g. Quest name and description generation)
+
+- Update active thoughts.
+
+- Update text for commands.
