@@ -130,6 +130,13 @@ namespace LordFanger
             return field;
         }
 
+        public static TValue GetInstanceFieldValue<TValue>(this object instance, string fieldName)
+        {
+            var field = GetTypeInstanceField(instance.GetType(), fieldName);
+            var value = (TValue)field.GetValue(instance);
+            return value;
+        }
+
         public static FieldInfoWithAttributes[] GetTypeInstanceFieldsWithAttributes(Type type)
         {
             var fields = _instances.GetFieldsWithAttributes(type);

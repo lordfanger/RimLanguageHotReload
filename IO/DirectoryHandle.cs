@@ -1,4 +1,6 @@
-﻿using System.IO;
+﻿using System.Collections.Generic;
+using System;
+using System.IO;
 
 namespace LordFanger.IO
 {
@@ -70,6 +72,21 @@ namespace LordFanger.IO
                 parent = parent.ParentDirectory;
             }
             return parent;
+        }
+
+        public IReadOnlyList<string> GetRelativePathTo(DirectoryHandle baseDirectoryHandle)
+        {
+            if (Level <= baseDirectoryHandle.Level) return Array.Empty<string>();
+            var parts = new List<string>();
+            var directory = this;
+            while (!directory.Equals(baseDirectoryHandle))
+            {
+                parts.Add(directory.DirectoryName);
+                directory = directory.ParentDirectory;
+            }
+
+            parts.Reverse();
+            return parts;
         }
 
         public DirectoryHandle SubDirectory(string name) => new DirectoryHandle(name, this);

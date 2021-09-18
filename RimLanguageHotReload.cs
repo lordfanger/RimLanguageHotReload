@@ -149,7 +149,7 @@ namespace LordFanger
             _fsw = new FileSystemWatcher();
             _fsw.Path = AppDomain.CurrentDomain.BaseDirectory;
             _fsw.IncludeSubdirectories = true;
-            _fsw.Filter = "*.xml";
+            _fsw.Filter = "*";
             _fsw.Changed += (_, e) => EnqueueFileChange(e.FullPath);
             _fsw.Created += (_, e) => EnqueueFileChange(e.FullPath);
             _fsw.Error += (_, e) =>
@@ -213,9 +213,8 @@ namespace LordFanger
                 () =>
                 {
                     var directory = file.Directory;
-                    var directoryName = directory.DirectoryName;
 
-                    if (!IsActiveLanguageSubfolder(directory))
+                    if (!IsActiveLanguageSubfolder(directory, out var rootDirectory))
                     {
                         return;
                     }
@@ -225,27 +224,45 @@ namespace LordFanger
                         return;
                     }
 
-                    if (!file.HasExtension(".xml"))
+                    if (file.HasExtension(".xml"))
                     {
+                        UpdateXmlFile(file, directory);
                         return;
                     }
 
-                    var xmlContent = file.ReadAllText();
-                    var xml = XDocument.Parse(xmlContent);
-
-                    var root = xml.Root;
-                    if (root == null) return;
-
-                    switch (root.Name.LocalName)
+                    if (file.HasExtension(".txt"))
                     {
-                        case "LanguageData":
-                            UpdateLanguageData(file, directoryName, root);
-                            break;
-                        case "BackstoryTranslations":
-                            UpdateBackstories(root);
-                            break;
+                        UpdateTxtFile(file, directory, rootDirectory);
+                        return;
                     }
                 });
+        }
+
+        private static void UpdateXmlFile(FileHandle file, DirectoryHandle directory)
+        {
+            var directoryName = directory.DirectoryName;
+            XDocument xml;
+            try
+            {
+                var xmlContent = file.ReadAllText();
+                xml = XDocument.Parse(xmlContent);
+            }
+            catch
+            {
+                return;
+            }
+
+            var root = xml.Root;
+            if (root == null) throw new Exception("Invalid XML");
+
+            if (root.Name == "LanguageData")
+            {
+                UpdateLanguageData(file, directoryName, root);
+            }
+            else if (root.Name == "BackstoryTranslations")
+            {
+                UpdateBackstories(root);
+            }
         }
 
         private static void UpdateLanguageData(FileHandle file, string directoryName, XElement root)
@@ -537,14 +554,80 @@ namespace LordFanger
             return unescapedValue == "TODO" ? null : unescapedValue;
         }
 
-        private static bool IsActiveLanguageSubfolder(DirectoryHandle directoryHandle)
+        private static void UpdateTxtFile(FileHandle file, DirectoryHandle directory, DirectoryHandle rootDirectory)
+        {
+            var relativePath = directory.GetRelativePathTo(rootDirectory);
+            if (relativePath.Count == 0) return;
+            if (relativePath[0].Equals("WordInfo"))
+            {
+                var directoryName = relativePath[1];
+                if (directoryName == "Gender")
+                {
+                    UpdateWordInfoGenderFile();
+                }
+                else
+                {
+                    UpdateWordInfoLookupFile(file, relativePath);
+                }
+            }
+        }
+
+        private static void UpdateWordInfoGenderFile()
+        {
+            Util.SafeExecute(
+                () =>
+                {
+                    var lines = new List<string>();
+                    var wordInfo = ActiveLanguage.WordInfo;
+                    var genders = wordInfo.GetInstanceFieldValue<Dictionary<string, Gender>>("genders");
+                    genders.Clear();
+                    foreach (var directory in ActiveLanguage.AllDirectories)
+                    {
+                        RemoveCachedGenderFiles(directory.Item2);
+                        wordInfo.LoadFrom(directory, ActiveLanguage);
+                    }
+                });
+
+            void RemoveCachedGenderFiles(ModContentPack modContentPack)
+            {
+                var alreadyLoadedFiles = ActiveLanguage.GetInstanceFieldValue<Dictionary<ModContentPack, HashSet<string>>>("tmpAlreadyLoadedFiles");
+                var modLoadedFiles = alreadyLoadedFiles[modContentPack];
+                var loadedFiles = modLoadedFiles.ToList();
+                foreach (var file in loadedFiles)
+                {
+                    if (file.EndsWith(@"\WordInfo\Gender\Male.txt", StringComparison.OrdinalIgnoreCase)) modLoadedFiles.Remove(file);
+                    if (file.EndsWith(@"\WordInfo\Gender\Female.txt", StringComparison.OrdinalIgnoreCase)) modLoadedFiles.Remove(file);
+                    if (file.EndsWith(@"\WordInfo\Gender\Neuter.txt", StringComparison.OrdinalIgnoreCase)) modLoadedFiles.Remove(file);
+                }
+            }
+        }
+
+        private static void UpdateWordInfoLookupFile(FileHandle file, IReadOnlyList<string> relativePath)
+        {
+            Util.SafeExecute(
+                () =>
+                {
+                    var databaseName = $"{string.Join("\\", relativePath.Skip(1))}\\{file.FileNameWithoutExtension}".ToLower();
+                    var wordInfo = ActiveLanguage.WordInfo;
+                    var lookupTables = wordInfo.GetInstanceFieldValue<Dictionary<string, Dictionary<string, string[]>>>("lookupTables");
+                    var wasRemoved = lookupTables.Remove(databaseName);
+                    wordInfo.RegisterLut(databaseName);
+                });
+        }
+
+        private static bool IsActiveLanguageSubfolder(DirectoryHandle directoryHandle, out DirectoryHandle languageRootHandle)
         {
             foreach (var directory in _languageDirectories)
             {
-                if (directoryHandle.StartsWith(directory)) return true;
+                if (!directoryHandle.StartsWith(directory)) continue;
+
+                languageRootHandle = directory;
+                return true;
             }
 
+            languageRootHandle = null;
             return false;
         }
+
     }
 }
