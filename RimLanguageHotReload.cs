@@ -684,10 +684,47 @@ namespace LordFanger
 
         private static void ClearCaches()
         {
+            // label cache
             GenLabel.ClearCache();
+
+            // art tab cache
             Util.GetTypeStaticField(typeof(ITab_Art), "cachedImageDescription").SetValue(null, null);
             Util.GetTypeStaticField(typeof(ITab_Art), "cachedImageSource").SetValue(null, null);
             Util.GetTypeStaticField(typeof(ITab_Art), "cachedTaleRef").SetValue(null, null);
+
+            // clear cache only in game
+            if (Current.Game.Maps.Count > 0)
+            {
+                ClearInGameCaches();
+            }
+        }
+
+        private static void ClearInGameCaches()
+        {
+            // log entry cache
+            var cachedStringField = Util.GetTypeInstanceField(typeof(LogEntry), "cachedString");
+            var cachedStringPovField = Util.GetTypeInstanceField(typeof(LogEntry), "cachedStringPov");
+            var cachedHeightWidthField = Util.GetTypeInstanceField(typeof(LogEntry), "cachedHeightWidth");
+            var cachedHeightField = Util.GetTypeInstanceField(typeof(LogEntry), "cachedHeight");
+            foreach (var entry in Find.PlayLog.AllEntries)
+            {
+                cachedStringField.SetValue(entry, null);
+                cachedStringPovField.SetValue(entry, null);
+                cachedHeightWidthField.SetValue(entry, null);
+                cachedHeightField.SetValue(entry, null);
+            }
+
+            // memory thoughts
+            var cachedLabelCapField = Util.GetTypeInstanceField(typeof(Thought_Memory), "cachedLabelCap");
+            foreach (var pawn in Find.Maps.Select(m => m.mapPawns.AllPawns).Concat(Find.WorldPawns.AllPawnsAliveOrDead).SelectMany(p => p))
+            {
+                foreach (var memory in (IReadOnlyList<Thought_Memory>)pawn.needs?.mood?.thoughts?.memories?.Memories ?? Array.Empty<Thought_Memory>())
+                {
+                    var cachedValue = cachedLabelCapField.GetValue(memory);
+                    if (cachedValue == null) continue;
+                    cachedLabelCapField.SetValue(memory, null);
+                }
+            }
         }
 
     }
