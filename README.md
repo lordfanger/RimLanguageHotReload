@@ -17,6 +17,14 @@ The Horlivec attach to active language and probes for changes in files in active
 
 Not all texts are available to translate and not all translated texts are able to be changed while the game is running and some are cached and need to be invalidated which is not allways easy task. But the list of available scenarios will grow up with each update.
 
+## Limitations
+
+There are some known limitations which can be fixed but are of low priority.
+
+- The Horlivec bypass modification and DLC inheritance. If some text is overriden in modification/DLC after change in Core (same file, same property is not needed) the translation is gotten from Core instead of modification/DLC.
+
+- Changes made to strings files (in \Langugage\Strings\ folder) are reflected after change in rulesStrings/rulesFiles property for particular definition. 
+
 ## Caution
 
 The Horlivec uses unsafe reflection API and can cause damage to game integrity leading to crash or corrupted game state or files.
@@ -27,8 +35,6 @@ Not all texts applied by Horlivec would be the same as if loaded natively. It tr
 The Horlivec is still in development. There are some goals that will very likely be resolved if possible.
 
 - Applying changes to Verse.Thing objects in game. They are composed of multiple Verse.Defs and very likely cached.
-
-- Allow changes to Rules system. (e.g. Quest name and description generation)
 
 - Update active thoughts.
 

@@ -213,5 +213,11 @@ namespace LordFanger
             handle = handle.Trim('_');
             return handle;
         }
+
+        public static string ToCachedName(this string fieldName)
+        {
+            var cachedFieldname = $"cached{fieldName.CapitalizeFirst()}";
+            return cachedFieldname;
+        }
     }
 }

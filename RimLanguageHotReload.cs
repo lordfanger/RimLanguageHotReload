@@ -12,6 +12,8 @@ using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Linq;
 using Verse;
+using Verse.Grammar;
+using File = System.IO.File;
 
 namespace LordFanger
 {
@@ -296,7 +298,6 @@ namespace LordFanger
             }
         }
 
-
         private static void UpdateDefinition(string defName, string fieldPathRaw, FileHandle file, string directoryName, XElement item)
         {
             var fieldPath = fieldPathRaw.Split('.');
@@ -308,7 +309,6 @@ namespace LordFanger
 
             UpdateDefinitionFieldByPath(def, fieldPath[0], fieldPath, 1, item, null);
         }
-
 
         private static void UpdateDefinitionFieldByPath(object obj, string fieldName, string[] fieldPath, int fieldPathOffset, XElement item, Attribute[] fieldAttributes)
         {
@@ -351,37 +351,67 @@ namespace LordFanger
             }
             else
             {
-                if (fieldInfo.FieldType != typeof(string))
+                if (fieldInfo.FieldType == typeof(string))
                 {
+                    UpdateStringDefinition(obj, objType, fieldName, fieldInfo, fieldPath, fieldPathOffset, item);
                     return;
                 }
 
-                var oldValue = (string)fieldInfo.GetValue(obj);
-                var newValue = GetNewValue(item);
-
-                if (newValue == null)
+                if (objType == typeof(RulePack) && typeof(IList<string>).IsAssignableFrom(fieldInfo.FieldType))
                 {
-                    // TODO value is TODO = skip
+                    UpdateRulesDefinition(obj, objType, fieldName, fieldInfo, fieldPath, fieldPathOffset, item);
                     return;
                 }
-
-                if (newValue == oldValue)
-                {
-                    return;
-                }
-
-                if (string.IsNullOrWhiteSpace(oldValue) && string.IsNullOrWhiteSpace(newValue))
-                {
-                    return;
-                }
-
-                var onlyFieldsByName = Util.GetTypeInstanceFieldsByName(objType);
-                fieldInfo.SetValue(obj, newValue);
-                TryClearCachedValue(obj, onlyFieldsByName, fieldName, item);
-                TryClearCachedValue(obj, onlyFieldsByName, fieldName + "Cap", item);
             }
         }
 
+        private static void UpdateStringDefinition(object obj, Type objType, string fieldName, FieldInfo fieldInfo, string[] fieldPath, int fieldPathOffset, XElement item)
+        {
+            var oldValue = (string)fieldInfo.GetValue(obj);
+            var newValue = GetNewValue(item);
+
+            if (newValue == null)
+            {
+                return;
+            }
+
+            if (newValue == oldValue)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(oldValue) && string.IsNullOrWhiteSpace(newValue))
+            {
+                return;
+            }
+
+            var fieldsByName = Util.GetTypeInstanceFieldsByName(objType);
+            fieldInfo.SetValue(obj, newValue);
+            TryClearCachedValue(obj, fieldName.ToCachedName(), item, fieldsByName);
+            TryClearCachedValue(obj, fieldName.ToCachedName() + "Cap", item, fieldsByName);
+        }
+
+        private static void UpdateRulesDefinition(object obj, Type objType, string fieldName, FieldInfo fieldInfo, string[] fieldPath, int fieldPathOffset, XElement item)
+        {
+            var oldValue = (IList<string>)fieldInfo.GetValue(obj);
+            var newValue = new List<string>();
+            foreach (var li in item.Elements())
+            {
+                if (li.Name != "li") throw new Exception($"Unknown element {li} found");
+                var value = li.Value;
+                var rule = value.Replace("\\n", "\n");
+                newValue.Add(rule);
+            }
+
+            if (oldValue.SequenceEqual(newValue))
+            {
+                return;
+            }
+
+            newValue.TrimExcess();
+            fieldInfo.SetValue(obj, newValue);
+            TryClearCachedValue(obj, "rulesResolved", item);
+        }
 
         private static bool TryUpdateInUntranslantedCollection(object obj, string fieldName, string[] fieldPath, int fieldPathOffset, XElement item, Attribute[] fieldAttributes)
         {
@@ -396,7 +426,6 @@ namespace LordFanger
 
                     if (newValue == null)
                     {
-                        // TODO value is TODO = skip
                         return false;
                     }
 
@@ -484,16 +513,14 @@ namespace LordFanger
             keyed.isPlaceholder = string.IsNullOrWhiteSpace(newValue);
         }
 
-
-        private static void TryClearCachedValue(object obj, IDictionary<string, FieldInfo> fieldByName, string fieldName, XElement item)
+        private static void TryClearCachedValue(object obj, string cachedFieldName, XElement item, IDictionary<string, FieldInfo> fieldByName = null)
         {
-            var cachedFieldName = "cached" + fieldName.CapitalizeFirst();
-            if (fieldByName.TryGetValue(cachedFieldName, out var cachedField))
-            {
-                cachedField.SetValue(obj, null);
-            }
-        }
+            fieldByName ??= Util.GetTypeInstanceFieldsByName(obj.GetType());
+            if (!fieldByName.TryGetValue(cachedFieldName, out var cachedField)) return;
+            if (cachedField.GetValue(obj) == null) return;
 
+            cachedField.SetValue(obj, null);
+        }
 
         private static void UpdateBackstories(XElement root)
         {
@@ -569,6 +596,12 @@ namespace LordFanger
                 {
                     UpdateWordInfoLookupFile(file, relativePath);
                 }
+                return;
+            }
+
+            if (relativePath[0].Equals("Strings"))
+            {
+                UpdateStringsFile(file, relativePath);
             }
         }
 
@@ -577,7 +610,6 @@ namespace LordFanger
             Util.SafeExecute(
                 () =>
                 {
-                    var lines = new List<string>();
                     var wordInfo = ActiveLanguage.WordInfo;
                     var genders = wordInfo.GetInstanceFieldValue<Dictionary<string, Gender>>("genders");
                     genders.Clear();
@@ -615,6 +647,27 @@ namespace LordFanger
                 });
         }
 
+        private static void UpdateStringsFile(FileHandle file, IReadOnlyList<string> relativePath)
+        {
+            var stringsCache = ActiveLanguage.GetInstanceFieldValue<Dictionary<string, List<string>>>("stringFiles");
+            var relativeStringsFile = $"{string.Join("\\", relativePath.Skip(1))}\\{file.FileNameWithoutExtension}";
+            var relativeStringsFileKey = relativeStringsFile.Replace('\\', '/');
+            stringsCache.Remove(relativeStringsFileKey);
+
+            var stringsList = new List<string>();
+            foreach (var (directory, _, _) in ActiveLanguage.AllDirectories)
+            {
+                var filePath = $"{directory}\\Strings\\{relativeStringsFile}.txt";
+                if (!File.Exists(filePath)) continue;
+                var text = File.ReadAllText(filePath);
+                var lines = GenText.LinesFromString(text);
+                stringsList.AddRange(lines);
+            }
+
+            stringsList.TrimExcess();
+            stringsCache.Add(relativeStringsFileKey, stringsList);
+        }
+
         private static bool IsActiveLanguageSubfolder(DirectoryHandle directoryHandle, out DirectoryHandle languageRootHandle)
         {
             foreach (var directory in _languageDirectories)
@@ -628,6 +681,5 @@ namespace LordFanger
             languageRootHandle = null;
             return false;
         }
-
     }
 }
