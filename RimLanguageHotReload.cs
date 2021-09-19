@@ -201,7 +201,7 @@ namespace LordFanger
 
             if (filePaths.Length == 0) return;
             UpdateFiles(filePaths.AsFiles());
-            GenLabel.ClearCache();
+            ClearCaches();
         }
 
         private static void UpdateFiles(IEnumerable<FileHandle> filePaths)
@@ -681,5 +681,14 @@ namespace LordFanger
             languageRootHandle = null;
             return false;
         }
+
+        private static void ClearCaches()
+        {
+            GenLabel.ClearCache();
+            Util.GetTypeStaticField(typeof(ITab_Art), "cachedImageDescription").SetValue(null, null);
+            Util.GetTypeStaticField(typeof(ITab_Art), "cachedImageSource").SetValue(null, null);
+            Util.GetTypeStaticField(typeof(ITab_Art), "cachedTaleRef").SetValue(null, null);
+        }
+
     }
 }
