@@ -116,7 +116,6 @@ namespace LordFanger
                                 }
                             });
                     }
-
                 });
         }
 
@@ -131,7 +130,7 @@ namespace LordFanger
 
         private static void LoadTKeys()
         {
-            var tKeyToNormalizedTranslationKey = (IDictionary<string, string>)Util.GetTypeStaticField(typeof(TKeySystem), "tKeyToNormalizedTranslationKey").GetValue(null);
+            var tKeyToNormalizedTranslationKey = (IDictionary<string, string>)Util.GetStaticField(typeof(TKeySystem), "tKeyToNormalizedTranslationKey").GetValue(null);
             foreach (var kv in tKeyToNormalizedTranslationKey)
             {
                 _tkeyToDefPath.Add(kv.Key, kv.Value);
@@ -319,19 +318,6 @@ namespace LordFanger
             if (TryUpdateInUntranslantedCollection(obj, fieldName, fieldPath, fieldPathOffset, item, fieldAttributes))
             {
                 return;
-            }
-
-            if (obj is ICollection<ThoughtStage> stages)
-            {
-                var untranslatedStageName = fieldName.Replace("_", " ");
-                foreach (var stage in stages)
-                {
-                    if (stage.untranslatedLabel == untranslatedStageName)
-                    {
-                        UpdateDefinitionFieldByPath(stage, fieldPath[fieldPathOffset], fieldPath, fieldPathOffset + 1, item, fieldAttributes);
-                        return;
-                    }
-                }
             }
 
             if (!fieldByName.TryGetValue(fieldName, out var field) || field == null)
@@ -568,7 +554,6 @@ namespace LordFanger
                     {
                         translantedFieldInfo.SetValue(backstory, true);
                     }
-
                 }
             }
         }
@@ -642,7 +627,7 @@ namespace LordFanger
                     var databaseName = $"{string.Join("\\", relativePath.Skip(1))}\\{file.FileNameWithoutExtension}".ToLower();
                     var wordInfo = ActiveLanguage.WordInfo;
                     var lookupTables = wordInfo.GetInstanceFieldValue<Dictionary<string, Dictionary<string, string[]>>>("lookupTables");
-                    var wasRemoved = lookupTables.Remove(databaseName);
+                    lookupTables.Remove(databaseName);
                     wordInfo.RegisterLut(databaseName);
                 });
         }
@@ -688,9 +673,9 @@ namespace LordFanger
             GenLabel.ClearCache();
 
             // art tab cache
-            Util.GetTypeStaticField(typeof(ITab_Art), "cachedImageDescription").SetValue(null, null);
-            Util.GetTypeStaticField(typeof(ITab_Art), "cachedImageSource").SetValue(null, null);
-            Util.GetTypeStaticField(typeof(ITab_Art), "cachedTaleRef").SetValue(null, null);
+            Util.GetStaticField(typeof(ITab_Art), "cachedImageDescription").SetValue(null, null);
+            Util.GetStaticField(typeof(ITab_Art), "cachedImageSource").SetValue(null, null);
+            Util.GetStaticField(typeof(ITab_Art), "cachedTaleRef").SetValue(null, null);
 
             // clear cache only in game
             if (Current.Game.Maps.Count > 0)
@@ -702,10 +687,10 @@ namespace LordFanger
         private static void ClearInGameCaches()
         {
             // log entry cache
-            var cachedStringField = Util.GetTypeInstanceField(typeof(LogEntry), "cachedString");
-            var cachedStringPovField = Util.GetTypeInstanceField(typeof(LogEntry), "cachedStringPov");
-            var cachedHeightWidthField = Util.GetTypeInstanceField(typeof(LogEntry), "cachedHeightWidth");
-            var cachedHeightField = Util.GetTypeInstanceField(typeof(LogEntry), "cachedHeight");
+            var cachedStringField = Util.GetInstanceField(typeof(LogEntry), "cachedString");
+            var cachedStringPovField = Util.GetInstanceField(typeof(LogEntry), "cachedStringPov");
+            var cachedHeightWidthField = Util.GetInstanceField(typeof(LogEntry), "cachedHeightWidth");
+            var cachedHeightField = Util.GetInstanceField(typeof(LogEntry), "cachedHeight");
             foreach (var entry in Find.PlayLog.AllEntries)
             {
                 cachedStringField.SetValue(entry, null);
@@ -715,7 +700,7 @@ namespace LordFanger
             }
 
             // memory thoughts
-            var cachedLabelCapField = Util.GetTypeInstanceField(typeof(Thought_Memory), "cachedLabelCap");
+            var cachedLabelCapField = Util.GetInstanceField(typeof(Thought_Memory), "cachedLabelCap");
             foreach (var pawn in Find.Maps.Select(m => m.mapPawns.AllPawns).Concat(Find.WorldPawns.AllPawnsAliveOrDead).SelectMany(p => p))
             {
                 foreach (var memory in (IReadOnlyList<Thought_Memory>)pawn.needs?.mood?.thoughts?.memories?.Memories ?? Array.Empty<Thought_Memory>())
@@ -725,7 +710,19 @@ namespace LordFanger
                     cachedLabelCapField.SetValue(memory, null);
                 }
             }
-        }
 
+            // stats in info dialog
+            var newEntryList = new List<StatDrawEntry>();
+            var drawEntriesField = Util.GetStaticField(typeof(StatsReportUtility), "cachedDrawEntries");
+            var oldEntryList = (List<StatDrawEntry>)drawEntriesField.GetValue(null);
+            drawEntriesField.SetValue(null, newEntryList);
+            // dispose later, whan should not by in use
+            Task.Run(
+                async () =>
+                {
+                    await Task.Delay(500);
+                    oldEntryList.Clear();
+                });
+        }
     }
 }

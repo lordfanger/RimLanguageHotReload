@@ -84,12 +84,28 @@ namespace LordFanger
                 {
                     return entry;
                 }
-                var rawFields = type.GetRuntimeFields();
-                if (_predicate != null) rawFields = rawFields.Where(_predicate);
+                var rawFields = new List<FieldInfo>();
+                var fieldNames = new HashSet<string>(); // TODO solve new overiden fields
+                var type2 = type;
+                var ignoreStatic = false;
+                while (type2 != null && type2 != typeof(object))
+                {
+                    foreach (var field in type2.GetRuntimeFields())
+                    {
+                        if (ignoreStatic && field.IsStatic) continue;
+                        if (!_predicate(field)) continue;
+                        if (fieldNames.Contains(field.Name)) continue;
+                        rawFields.Add(field);
+                        fieldNames.Add(field.Name);
+                    }
 
-                var fieldsWithAttributes = rawFields.Select(WithAttributes).ToArray();
+                    ignoreStatic = true;
+                    type2 = type2.BaseType;
+                }
+
+                var fieldsWithAttributes = rawFields.Select(WithAttributes).OrderBy(f => f.FieldInfo.Name).ToArray();
                 var fieldsWithAttributesByName = fieldsWithAttributes.ToDictionary(f => f.FieldInfo.Name);
-                var fields = fieldsWithAttributes.Select(f => f.FieldInfo).ToArray();
+                var fields = fieldsWithAttributes.Select(f => f.FieldInfo).OrderBy(f => f.Name).ToArray();
                 var fieldsByName = fields.ToDictionary(f => f.Name);
                 entry = new CacheEntry(fields, fieldsWithAttributes, fieldsByName, fieldsWithAttributesByName);
                 _fields[type] = entry;
@@ -117,13 +133,13 @@ namespace LordFanger
             return fieldsByName;
         }
 
-        public static FieldInfo[] GetTypeInstanceFields(Type type)
+        public static FieldInfo[] GetInstanceFields(Type type)
         {
             var fields = _instances.GetFields(type);
             return fields;
         }
 
-        public static FieldInfo GetTypeInstanceField(Type type, string fieldName)
+        public static FieldInfo GetInstanceField(Type type, string fieldName)
         {
             var fields = _instances.GetFieldsByName(type);
             var field = fields[fieldName];
@@ -132,28 +148,43 @@ namespace LordFanger
 
         public static TValue GetInstanceFieldValue<TValue>(this object instance, string fieldName)
         {
-            var field = GetTypeInstanceField(instance.GetType(), fieldName);
+            var field = GetInstanceField(instance.GetType(), fieldName);
             var value = (TValue)field.GetValue(instance);
             return value;
         }
 
-        public static FieldInfoWithAttributes[] GetTypeInstanceFieldsWithAttributes(Type type)
+        public static TValue GetStaticFieldValue<TType, TValue>(string fieldName)
+        {
+            var field = GetStaticField(typeof(TType), fieldName);
+            var value = (TValue)field.GetValue(null);
+            return value;
+        }
+
+        public static FieldInfoWithAttributes[] GetInstanceFieldsWithAttributes(Type type)
         {
             var fields = _instances.GetFieldsWithAttributes(type);
             return fields;
         }
 
-        public static FieldInfo[] GetTypeStaticFields(Type type)
+        public static FieldInfo[] GetStaticFields(Type type)
         {
             var fields = _statics.GetFields(type);
             return fields;
         }
 
-        public static FieldInfo GetTypeStaticField(Type type, string fieldName)
+        public static FieldInfo GetStaticField(Type type, string fieldName)
         {
             var fields = _statics.GetFieldsByName(type);
             var field = fields[fieldName];
             return field;
+        }
+
+        public static TValue GetStaticFieldValue<TValue>(Type type, string fieldName)
+        {
+            var fields = _statics.GetFieldsByName(type);
+            var field = fields[fieldName];
+            var value = (TValue)field.GetValue(null);
+            return value;
         }
 
         public static FieldInfo[] GetTypeUntranslantedFields(Type type)
@@ -171,7 +202,7 @@ namespace LordFanger
         private static IDictionary<string, FieldInfo> GetTypeFieldsByName(Type type, ConcurrentDictionary<Type, IDictionary<string, FieldInfo>> cachedFieldsByName)
         {
             if (cachedFieldsByName.TryGetValue(type, out var fieldsByName)) return fieldsByName;
-            fieldsByName = GetTypeInstanceFields(type)
+            fieldsByName = GetInstanceFields(type)
                 .ToDictionary(f => f.Name);
             cachedFieldsByName[type] = fieldsByName;
             return fieldsByName;
@@ -183,8 +214,8 @@ namespace LordFanger
             return collection.Cast<object>().FirstOrDefault(item => i++ == index);
         }
 
-        public static bool Any<TAttribute>(this IEnumerable<Attribute> attributes) 
-            where TAttribute : Attribute 
+        public static bool Any<TAttribute>(this IEnumerable<Attribute> attributes)
+            where TAttribute : Attribute
             => attributes?.Any(a => a is TAttribute) ?? false;
 
         public static void SafeExecute(this Action action)
@@ -195,7 +226,7 @@ namespace LordFanger
             }
             catch
             {
-                // ignore Exceptions
+                // ignore any exception
             }
         }
 

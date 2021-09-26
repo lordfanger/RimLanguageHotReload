@@ -18,8 +18,7 @@
     <description>
 Automatically tries to hot reload any changes applied to active language to show them immediately in-game.
 
-Still in developement.
-Last update: 19:22 29.08.2021
+Last update: $DATE_TIME$
     </description>
     <!-- List of other mods which your mod requires to function. -->
     <!-- Lists the mods which should be loaded before your mod. Helps ensure your dependencies are loaded in first. -->
