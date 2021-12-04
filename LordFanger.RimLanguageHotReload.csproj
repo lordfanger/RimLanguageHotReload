@@ -8,7 +8,7 @@
 
 	<ItemGroup>
 		<Reference Include="Assembly-CSharp">
-			<HintPath>..\..\..\Hry\SteamLib\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
+			<HintPath>T:\Hry\SteamLib\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
 		</Reference>
 	</ItemGroup>
 

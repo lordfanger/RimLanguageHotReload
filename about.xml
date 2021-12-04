@@ -1,27 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-    <!-- The name of the mod -->
     <name>Rim Language Hot Reload</name>
     
-    <!-- The mod author names, usually set to your Steam/Forum name -->
     <author>LordFanger</author>
     
-    <!-- Added in 1.0. Please make it human readable. Avoid acronyms where possible. Normally qualifiers seperated by periods.-->
     <packageId>LordFanger.RimLanguageHotReload</packageId>
-    
-    <!-- Supported version lists which versions of Rimworld your mod is compatible with. If your mod doesn't break across versions, lists them all here. -->
+
+	<url>https://github.com/lordfanger/RimLanguageHotReload</url>
+
     <supportedVersions>
         <li>1.3</li>
     </supportedVersions>
     
-    <!-- Describes your mod, can be multiple lines long. -->
     <description>
 Automatically tries to hot reload any changes applied to active language to show them immediately in-game.
 
 Last update: $DATE_TIME$
     </description>
-    <!-- List of other mods which your mod requires to function. -->
-    <!-- Lists the mods which should be loaded before your mod. Helps ensure your dependencies are loaded in first. -->
     <loadAfter>
         <li>Ludeon.RimWorld</li>
         <li>Ludeon.RimWorld.Royalty</li>

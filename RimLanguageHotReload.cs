@@ -345,7 +345,10 @@ namespace LordFanger
 
                 if (objType == typeof(RulePack) && typeof(IList<string>).IsAssignableFrom(fieldInfo.FieldType))
                 {
-                    UpdateRulesDefinition(obj, objType, fieldName, fieldInfo, fieldPath, fieldPathOffset, item);
+                    if (TryUpdateRulesDefinition(obj, objType, fieldName, fieldInfo, fieldPath, fieldPathOffset, item))
+                    {
+                        TryClearCachedValue(obj, "cachedRules", item);
+                    }
                     return;
                 }
             }
@@ -377,7 +380,7 @@ namespace LordFanger
             TryClearCachedValue(obj, fieldName.ToCachedName() + "Cap", item, fieldsByName);
         }
 
-        private static void UpdateRulesDefinition(object obj, Type objType, string fieldName, FieldInfo fieldInfo, string[] fieldPath, int fieldPathOffset, XElement item)
+        private static bool TryUpdateRulesDefinition(object obj, Type objType, string fieldName, FieldInfo fieldInfo, string[] fieldPath, int fieldPathOffset, XElement item)
         {
             var oldValue = (IList<string>)fieldInfo.GetValue(obj);
             var newValue = new List<string>();
@@ -391,12 +394,13 @@ namespace LordFanger
 
             if (oldValue.SequenceEqual(newValue))
             {
-                return;
+                return false;
             }
 
             newValue.TrimExcess();
             fieldInfo.SetValue(obj, newValue);
             TryClearCachedValue(obj, "rulesResolved", item);
+            return true;
         }
 
         private static bool TryUpdateInUntranslantedCollection(object obj, string fieldName, string[] fieldPath, int fieldPathOffset, XElement item, Attribute[] fieldAttributes)
