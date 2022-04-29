@@ -398,8 +398,13 @@ namespace LordFanger
             }
 
             newValue.TrimExcess();
+
+            // clear local rules cache
             fieldInfo.SetValue(obj, newValue);
             TryClearCachedValue(obj, "rulesResolved", item);
+
+            // clear global rules cache
+            TryClearCachedValue(RulePackDefOf.GlobalUtility, "cachedRules", item);
             return true;
         }
 
@@ -680,6 +685,10 @@ namespace LordFanger
             Util.GetStaticField(typeof(ITab_Art), "cachedImageDescription").SetValue(null, null);
             Util.GetStaticField(typeof(ITab_Art), "cachedImageSource").SetValue(null, null);
             Util.GetStaticField(typeof(ITab_Art), "cachedTaleRef").SetValue(null, null);
+
+            // clear cache for colorization
+            ColoredText.ClearCache();
+            ColoredText.ResetStaticData();
 
             // clear cache only in game
             if (Current.Game.Maps.Count > 0)
