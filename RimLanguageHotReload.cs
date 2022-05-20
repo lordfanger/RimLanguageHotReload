@@ -774,7 +774,7 @@ namespace LordFanger
             Util.SafeExecute(() =>
             {
                 mouseoverReadout.InvokeInstanceMethod("MakePermaCache");
-                Util.ClearStaticField(typeof(MouseoverReadout), "cachedTerrain");
+                mouseoverReadout.ClearInstanceField("cachedTerrain");
             });
 
             // clear cached alerts

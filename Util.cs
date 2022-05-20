@@ -155,6 +155,12 @@ namespace LordFanger
             return value;
         }
 
+        public static void ClearInstanceField(this object instance, string fieldName)
+        {
+            var field = GetInstanceField(instance.GetType(), fieldName);
+            field.SetValue(instance, null);
+        }
+
         public static TValue GetStaticFieldValue<TType, TValue>(string fieldName)
         {
             var field = GetStaticField(typeof(TType), fieldName);
