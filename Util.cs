@@ -121,6 +121,8 @@ namespace LordFanger
 
         private static readonly CacheFields _untranslanted = new CacheFields(f => f.GetCustomAttributes().Any(a => a is TranslationHandleAttribute));
 
+        private static readonly ConcurrentDictionary<Type, MethodInfo[]> _cachedInstanceMethods = new ConcurrentDictionary<Type, MethodInfo[]>();
+
         public static IDictionary<string, FieldInfo> GetTypeInstanceFieldsByName(Type type)
         {
             var fieldsByName = _instances.GetFieldsByName(type);
@@ -186,6 +188,12 @@ namespace LordFanger
             var value = (TValue)field.GetValue(null);
             return value;
         }
+        
+        public static void ClearStaticField(Type type, string fieldName)
+        {
+            var fieldInfo = GetStaticField(type, fieldName);
+            fieldInfo.SetValue(null, null);
+        }
 
         public static FieldInfo[] GetTypeUntranslantedFields(Type type)
         {
@@ -206,6 +214,19 @@ namespace LordFanger
                 .ToDictionary(f => f.Name);
             cachedFieldsByName[type] = fieldsByName;
             return fieldsByName;
+        }
+
+        public static object InvokeInstanceMethod(this object instance, string method, params object[] arguments)
+        {
+            var type = instance.GetType();
+            if (!_cachedInstanceMethods.TryGetValue(type, out var methods))
+            {
+                methods = type.GetRuntimeMethods().ToArray();
+                _cachedInstanceMethods[type] = methods;
+            }
+            
+            var result = methods.FirstOrDefault(m => m.Name == method)?.Invoke(instance, arguments ?? Array.Empty<object>());
+            return result;
         }
 
         public static object ElementAt(this ICollection collection, int index)

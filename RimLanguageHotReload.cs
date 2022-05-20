@@ -1,5 +1,6 @@
 ﻿using LordFanger.IO;
 using RimWorld;
+using RimWorld.IO;
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -117,6 +118,12 @@ namespace LordFanger
                             });
                     }
                 });
+        }
+
+        private static void ReloadKeyed()
+        {
+            _keyed.Clear();
+            LoadKeyed();
         }
 
         private static void LoadKeyed()
@@ -489,7 +496,16 @@ namespace LordFanger
         private static void UpdateKeyed(FileHandle file, XElement item)
         {
             var keyedName = item.Name.LocalName;
-            if (!_keyed.TryGetValue(new KeyedUniqueKey(keyedName, file.FilePathLower), out var keyed)) return;
+            if (!_keyed.TryGetValue(new KeyedUniqueKey(keyedName, file.FilePathLower), out var keyed))
+            {
+                // try to reload file keyed file if was missing at game initialization
+                // TODO could take very long when many files are missing
+                ReloadKeyedFile(file);
+                if (!_keyed.TryGetValue(new KeyedUniqueKey(keyedName, file.FilePathLower), out keyed))
+                {
+                    return;
+                }
+            }
 
             var oldValue = keyed.value;
             var newValue = GetNewValue(item);
@@ -506,6 +522,22 @@ namespace LordFanger
 
             keyed.value = newValue;
             keyed.isPlaceholder = string.IsNullOrWhiteSpace(newValue);
+        }
+
+        private static void ReloadKeyedFile(FileHandle file)
+        {
+            Util.SafeExecute(
+                () =>
+                {
+                    var virtualDirectory = AbstractFilesystem.GetDirectory(file.Directory.DirectoryPath);
+                    var virtualFile = virtualDirectory.GetFile(file.FileName);
+
+                    // reload translation file in game
+                    ActiveLanguage.InvokeInstanceMethod("LoadFromFile_Keyed", virtualFile);
+
+                    // reload hot reload keyed cache
+                    ReloadKeyed();
+                });
         }
 
         private static void TryClearCachedValue(object obj, string cachedFieldName, XElement item, IDictionary<string, FieldInfo> fieldByName = null)
@@ -682,9 +714,9 @@ namespace LordFanger
             GenLabel.ClearCache();
 
             // art tab cache
-            Util.GetStaticField(typeof(ITab_Art), "cachedImageDescription").SetValue(null, null);
-            Util.GetStaticField(typeof(ITab_Art), "cachedImageSource").SetValue(null, null);
-            Util.GetStaticField(typeof(ITab_Art), "cachedTaleRef").SetValue(null, null);
+            Util.ClearStaticField(typeof(ITab_Art), "cachedImageDescription");
+            Util.ClearStaticField(typeof(ITab_Art), "cachedImageSource");
+            Util.ClearStaticField(typeof(ITab_Art), "cachedTaleRef");
 
             // clear cache for colorization
             ColoredText.ClearCache();
@@ -736,6 +768,47 @@ namespace LordFanger
                     await Task.Delay(500);
                     oldEntryList.Clear();
                 });
+
+            // clear cached lights texts
+            var mouseoverReadout = Find.MapUI.GetInstanceFieldValue<MouseoverReadout>("mouseoverReadout");
+            Util.SafeExecute(() =>
+            {
+                mouseoverReadout.InvokeInstanceMethod("MakePermaCache");
+                Util.ClearStaticField(typeof(MouseoverReadout), "cachedTerrain");
+            });
+
+            // clear cached alerts
+            Util.SafeExecute(
+                () =>
+                {
+                    var alertsReadout = ((UIRoot_Play)Find.UIRoot).alerts;
+                    var allAlerts = alertsReadout.GetInstanceFieldValue<List<Alert>>("AllAlerts");
+
+                    // recreate all alerts
+                    // TODO can be dangerous for some cached fields, that will not by initialized properlly
+                    // TODO maybe can be enough copy all string values (namely defaultLabel and defaultExplanation
+                    for (var i = 0; i < allAlerts.Count; i++)
+                    {
+                        var alert = allAlerts[i];
+                        var alertType = alert.GetType();
+                        var newAlert = (Alert)Activator.CreateInstance(alertType);
+                        allAlerts[i] = newAlert;
+                    }
+
+                    // remove old alerts
+                    var oldAlerts = alertsReadout.GetInstanceFieldValue<List<Alert>>("activeAlerts");
+                    oldAlerts.Clear();
+
+                    // remove cached precept alerts
+                    var oldPreceptAlerts = alertsReadout.GetInstanceFieldValue<Dictionary<Precept, List<Alert>>>("activePreceptAlerts");
+                    oldPreceptAlerts.Clear();
+
+                    // reload active alerts from new ones
+                    alertsReadout.AlertsReadoutUpdate();
+                });
+            
+            // clear cached date
+            DateReadout.Reset();
         }
     }
 }
