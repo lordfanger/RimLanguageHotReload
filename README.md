@@ -33,5 +33,3 @@ Not all texts applied by Horlivec would be the same as if loaded natively. It tr
 
 ## TODO
 The Horlivec mainly completed. Future work will focus on increase performance and fix some bugs if found. There are currently no missing translations that I'm aware of.
-
-- Rules strings files dows not seem to work properperly.
