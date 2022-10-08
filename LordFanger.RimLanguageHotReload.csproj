@@ -38,8 +38,10 @@
     <!-- about.xml -->
     <Copy SourceFiles="$(MSBuildProjectDirectory)\about.xml" DestinationFolder="$(RimWorldSteamFolder)Mods\$(LordFanger_ModName)\About"/>
     <LordFanger_AboutXmlReplace Path="$(RimWorldSteamFolder)Mods\$(LordFanger_ModName)\About\about.xml"/>
-    <!-- Preview.xml -->
+    <!-- Preview.png -->
     <Copy SourceFiles="$(MSBuildProjectDirectory)\Preview.png" DestinationFolder="$(RimWorldSteamFolder)Mods\$(LordFanger_ModName)\About"/>
+    <!-- PublishedFileId.txt -->
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\PublishedFileId.txt" DestinationFolder="$(RimWorldSteamFolder)Mods\$(LordFanger_ModName)\About"/>
 
     <!-- Older versions -->
     <ItemGroup>
