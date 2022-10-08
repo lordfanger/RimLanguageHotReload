@@ -56,8 +56,6 @@ namespace LordFanger
 
         private static readonly IDictionary<string, string> _tkeyToDefPath = new Dictionary<string, string>();
 
-        private static readonly Dictionary<string, Backstory> _backstories = new Dictionary<string, Backstory>();
-
         private static readonly IDictionary<DefUniqueKey, Def> _definitions = new Dictionary<DefUniqueKey, Def>();
 
         private static readonly IDictionary<KeyedUniqueKey, LoadedLanguage.KeyedReplacement> _keyed = new Dictionary<KeyedUniqueKey, LoadedLanguage.KeyedReplacement>();
@@ -77,7 +75,6 @@ namespace LordFanger
             LoadDefinitions();
             LoadKeyed();
             LoadTKeys();
-            LoadBackstories();
 
             Task.Run(() =>
             {
@@ -144,27 +141,23 @@ namespace LordFanger
             }
         }
 
-        private static void LoadBackstories()
-        {
-            foreach (var kv in BackstoryDatabase.allBackstories)
-            {
-                _backstories.Add(kv.Key, kv.Value);
-            }
-        }
-
         private static void StartFileSystemWatcher()
         {
-            _fsw = new FileSystemWatcher();
-            _fsw.Path = AppDomain.CurrentDomain.BaseDirectory;
-            _fsw.IncludeSubdirectories = true;
-            _fsw.Filter = "*";
-            _fsw.Changed += (_, e) => EnqueueFileChange(e.FullPath);
-            _fsw.Created += (_, e) => EnqueueFileChange(e.FullPath);
-            _fsw.Error += (_, e) =>
+            var fsw = new FileSystemWatcher
             {
-                Util.SafeExecute(_fsw.Dispose);
+                Path = AppDomain.CurrentDomain.BaseDirectory,
+                IncludeSubdirectories = true,
+                Filter = "*"
+            };
+            fsw.Changed += (_, e) => EnqueueFileChange(e.FullPath);
+            fsw.Created += (_, e) => EnqueueFileChange(e.FullPath);
+            fsw.Error += (_, e) =>
+            {
+                Util.SafeExecute(fsw.Dispose);
+                Log.Warning($"Error in file system watching - {e.GetException().Message}\nRestarting file system watcher.");
                 StartFileSystemWatcher();
             };
+            _fsw = fsw;
             _fsw.EnableRaisingEvents = true;
         }
 
@@ -266,10 +259,6 @@ namespace LordFanger
             if (root.Name == "LanguageData")
             {
                 UpdateLanguageData(file, directoryName, root);
-            }
-            else if (root.Name == "BackstoryTranslations")
-            {
-                UpdateBackstories(root);
             }
         }
 
@@ -547,56 +536,6 @@ namespace LordFanger
             if (cachedField.GetValue(obj) == null) return;
 
             cachedField.SetValue(obj, null);
-        }
-
-        private static void UpdateBackstories(XElement root)
-        {
-            foreach (var item in root.Elements())
-            {
-                if (item.NodeType != XmlNodeType.Element) continue;
-                var backstoryName = item.Name.LocalName;
-                if (!_backstories.TryGetValue(backstoryName, out var backstory))
-                {
-                    continue;
-                }
-
-                var fields = Util.GetTypeInstanceFieldsByName(backstory.GetType());
-                foreach (var fieldNode in item.Elements())
-                {
-                    if (fieldNode.NodeType != XmlNodeType.Element) continue;
-
-                    var rawFieldName = fieldNode.Name.LocalName;
-                    var fieldName = rawFieldName == "desc" ? "baseDesc" : rawFieldName;
-                    if (!fields.TryGetValue(fieldName, out var fieldInfo))
-                    {
-                        continue;
-                    }
-
-                    if (fieldInfo.FieldType != typeof(string))
-                    {
-                        continue;
-                    }
-
-                    var oldValue = (string)fieldInfo.GetValue(backstory);
-                    var newValue = GetNewValue(fieldNode);
-
-                    if (newValue == null)
-                    {
-                        // is TODO = skip
-                        continue;
-                    }
-
-                    if (oldValue == newValue) continue;
-                    if (string.IsNullOrEmpty(oldValue) && string.IsNullOrEmpty(newValue)) continue;
-
-                    fieldInfo.SetValue(backstory, newValue);
-
-                    if (fields.TryGetValue($"{rawFieldName}Translanted", out var translantedFieldInfo))
-                    {
-                        translantedFieldInfo.SetValue(backstory, true);
-                    }
-                }
-            }
         }
 
         private static string GetNewValue(XElement item)

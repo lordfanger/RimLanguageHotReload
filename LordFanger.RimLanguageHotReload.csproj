@@ -1,15 +1,66 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFrameworks>net48</TargetFrameworks>
 		<LangVersion>8</LangVersion>
 		<RootNamespace>LordFanger</RootNamespace>
+    <!-- Folder where RimWolrd is eg. C:\Program Files (x86)\Steam\steamapps\common\RimWorld\ -->
+    <RimWorldSteamFolder Condition="'$(RimWorldSteamFolder)' != ''">C:\Program Files (x86)\Steam\steamapps\common\RimWorld\</RimWorldSteamFolder>
+    <RimWorldVersion Condition="'$(RimWorldVersion)' != ''">1.4</RimWorldVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<Reference Include="Assembly-CSharp">
-			<HintPath>T:\Hry\SteamLib\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
+			<HintPath>$(RimWorldSteamFolder)RimWorldWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
 		</Reference>
 	</ItemGroup>
 
+  <Target Name="LordFanger_ReleaseBuild" AfterTargets="Build" Condition="'$(Configuration)' != 'Release' AND $(Path.Contains('\dotnet'))">
+    <Message Text="path: $(ProjectPath)"/>
+    <Exec Command="dotnet build &quot;$(MSBuildProjectFullPath)&quot; -c Release"/>
+  </Target>
+
+  <Target Name="LordFanger_Deploy" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(TargetDir)' != ''">
+    <PropertyGroup>
+      <LordFanger_ModName>$(MSBuildProjectName)</LordFanger_ModName>
+    </PropertyGroup>
+
+    <Error Text="RimWorld folder not set" Condition="'$(RimWorldSteamFolder)' == ''"/>
+    <Error Text="RimWorld version not set" Condition="'$(RimWorldVersion)' == ''"/>
+    <Error Text="Mod name not set" Condition="'$(LordFanger_ModName)' == ''"/>
+    <Error Text="Mod directory not set" Condition="'$(MSBuildProjectDirectory)' == ''"/>
+    
+    <!-- Removing old mod -->
+    <RemoveDir Directories="$(RimWorldSteamFolder)Mods\$(LordFanger_ModName)"/>
+
+    <!-- LordFanger.RimLanguageHotReload.dll -->
+    <Copy SourceFiles="$(TargetDir)$(TargetFileName)" DestinationFolder="$(RimWorldSteamFolder)Mods\$(LordFanger_ModName)\$(RimWorldVersion)\Assemblies"/>
+    <!-- about.xml -->
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\about.xml" DestinationFolder="$(RimWorldSteamFolder)Mods\$(LordFanger_ModName)\About"/>
+    <LordFanger_AboutXmlReplace Path="$(RimWorldSteamFolder)Mods\$(LordFanger_ModName)\About\about.xml"/>
+    <!-- Preview.xml -->
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Preview.png" DestinationFolder="$(RimWorldSteamFolder)Mods\$(LordFanger_ModName)\About"/>
+
+    <!-- Older versions -->
+    <ItemGroup>
+      <LordFanger_LegacyItem Include="$(MSBuildProjectDirectory)\Legacy\**\*.*"/>
+    </ItemGroup>
+    <Copy SourceFiles="@(LordFanger_LegacyItem)" DestinationFiles="$(RimWorldSteamFolder)Mods\$(LordFanger_ModName)\%(RecursiveDir)%(Filename)%(Extension)" />
+  </Target>
+
+  <!-- Modify about.xml -->
+  <UsingTask TaskName="LordFanger_AboutXmlReplace" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Path ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+string content = File.ReadAllText(Path);
+content = content.Replace("$DATE_TIME$", DateTime.Now.ToString("HH:mm d.M.yyyy"));
+File.WriteAllText(Path, content);
+]]>
+      </Code>
+    </Task>
+  </UsingTask>
 </Project>
