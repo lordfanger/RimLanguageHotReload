@@ -657,11 +657,14 @@ namespace LordFanger
             Util.ClearStaticField(typeof(ITab_Art), "cachedImageSource");
             Util.ClearStaticField(typeof(ITab_Art), "cachedTaleRef");
 
-            // clear cache for colorization
+            // cache for colorization
             ColoredText.ClearCache();
             ColoredText.ResetStaticData();
 
-            // clear cache only in game
+            // designators cache
+            Find.ReverseDesignatorDatabase.Reinit();
+
+            // cache only in game
             if (Current.Game.Maps.Count > 0)
             {
                 ClearInGameCaches();
@@ -724,7 +727,7 @@ namespace LordFanger
                     var allAlerts = alertsReadout.GetInstanceFieldValue<List<Alert>>("AllAlerts");
 
                     // recreate all alerts
-                    // TODO can be dangerous for some cached fields, that will not by initialized properlly
+                    // TODO can be dangerous for some cached fields, that will not be initialized properlly
                     // TODO maybe can be enough copy all string values (namely defaultLabel and defaultExplanation
                     for (var i = 0; i < allAlerts.Count; i++)
                     {
