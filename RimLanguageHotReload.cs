@@ -748,9 +748,12 @@ namespace LordFanger
                     // reload active alerts from new ones
                     alertsReadout.AlertsReadoutUpdate();
                 });
-            
+
             // clear cached date
             DateReadout.Reset();
+
+            // clear cache from main thread
+            Current.Game.GetComponent<RimLanguageHotReloadGameComponent>().InvalidateCache();
         }
     }
 }
