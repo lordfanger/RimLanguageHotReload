@@ -125,9 +125,11 @@ namespace LordFanger
 
         private static void LoadKeyed()
         {
+            if (ActiveLanguage.keyedReplacements == null) return;
             foreach (var kv in ActiveLanguage.keyedReplacements)
             {
                 var keyed = kv.Value;
+                if (keyed == null || keyed.fileSourceFullPath == null || keyed.key == null) continue;
                 _keyed.Add(new KeyedUniqueKey(keyed.key, keyed.fileSourceFullPath.ToLower()), keyed);
             }
         }
