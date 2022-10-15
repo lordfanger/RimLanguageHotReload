@@ -19,46 +19,15 @@ using File = System.IO.File;
 namespace LordFanger
 {
     [StaticConstructorOnStartup]
-    public static class RimLanguageHotReload
+    public static partial class RimLanguageHotReload
     {
-        private readonly struct DefUniqueKey
-        {
-            public DefUniqueKey(string name, FileHandle file, string directoryName) : this(name, file.FileNameWithoutExtension, directoryName)
-            {
-            }
-
-            public DefUniqueKey(string name, string fileNameWithoutExtension, string directoryName)
-            {
-                Name = name;
-                FileName = fileNameWithoutExtension;
-                DirectoryName = directoryName;
-            }
-
-            public string Name { get; }
-
-            public string FileName { get; }
-
-            public string DirectoryName { get; }
-        }
-
-        private readonly struct KeyedUniqueKey
-        {
-            public KeyedUniqueKey(string key, string filePath)
-            {
-                Key = key;
-                FilePath = filePath;
-            }
-
-            public string Key { get; }
-
-            public string FilePath { get; }
-        }
-
         private static readonly IDictionary<string, string> _tkeyToDefPath = new Dictionary<string, string>();
 
         private static readonly IDictionary<DefUniqueKey, Def> _definitions = new Dictionary<DefUniqueKey, Def>();
 
         private static readonly IDictionary<KeyedUniqueKey, LoadedLanguage.KeyedReplacement> _keyed = new Dictionary<KeyedUniqueKey, LoadedLanguage.KeyedReplacement>();
+
+        private static readonly TemplateDefsResolver _templateDefsResolver = new TemplateDefsResolver();
 
         private static DateTime _delayedFswTo;
 
@@ -110,7 +79,11 @@ namespace LordFanger
                                     var defName = def.defName;
 
                                     var key = new DefUniqueKey(defName, Path.GetFileNameWithoutExtension(fileName), directoryName);
-                                    if (!_definitions.ContainsKey(key)) _definitions.Add(key, def); // todo compare if equals
+                                    if (!_definitions.ContainsKey(key))
+                                    {
+                                        _definitions.Add(key, def); // todo compare if equals
+                                        _templateDefsResolver.AddImpliedDefIfAny(def);
+                                    }
                                 }
                             });
                     }
@@ -376,6 +349,10 @@ namespace LordFanger
             fieldInfo.SetValue(obj, newValue);
             TryClearCachedValue(obj, fieldName.ToCachedName(), item, fieldsByName);
             TryClearCachedValue(obj, fieldName.ToCachedName() + "Cap", item, fieldsByName);
+            if (obj is Def def)
+            {
+                _templateDefsResolver.NotifyDefChanged(def);
+            }
         }
 
         private static bool TryUpdateRulesDefinition(object obj, Type objType, string fieldName, FieldInfo fieldInfo, string[] fieldPath, int fieldPathOffset, XElement item)
@@ -671,6 +648,9 @@ namespace LordFanger
             {
                 ClearInGameCaches();
             }
+
+            // rewrite templated defs if needed
+            _templateDefsResolver.ReleaseChanges();
         }
 
         private static void ClearInGameCaches()
