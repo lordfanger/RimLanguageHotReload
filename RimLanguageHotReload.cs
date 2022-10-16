@@ -15,6 +15,7 @@ using System.Xml.Linq;
 using Verse;
 using Verse.Grammar;
 using File = System.IO.File;
+using static LordFanger.Log;
 
 namespace LordFanger
 {
@@ -87,6 +88,7 @@ namespace LordFanger
                                 }
                             });
                     }
+                    Message("Definitions loaded.");
                 });
         }
 
@@ -98,13 +100,14 @@ namespace LordFanger
 
         private static void LoadKeyed()
         {
-            if (ActiveLanguage.keyedReplacements == null) return;
+            if (ActiveLanguage?.keyedReplacements == null) return;
             foreach (var kv in ActiveLanguage.keyedReplacements)
             {
                 var keyed = kv.Value;
                 if (keyed == null || keyed.fileSourceFullPath == null || keyed.key == null) continue;
                 _keyed.Add(new KeyedUniqueKey(keyed.key, keyed.fileSourceFullPath.ToLower()), keyed);
             }
+            Message("Keyed loaded.");
         }
 
         private static void LoadTKeys()
@@ -114,6 +117,7 @@ namespace LordFanger
             {
                 _tkeyToDefPath.Add(kv.Key, kv.Value);
             }
+            Message("TKeys loaded.");
         }
 
         private static void StartFileSystemWatcher()
@@ -129,7 +133,7 @@ namespace LordFanger
             fsw.Error += (_, e) =>
             {
                 Util.SafeExecute(fsw.Dispose);
-                Log.Warning($"Error in file system watching - {e.GetException().Message}\nRestarting file system watcher.");
+                Warning($"Error in file system watching - {e.GetException().Message}\nRestarting file system watcher.");
                 StartFileSystemWatcher();
             };
             _fsw = fsw;
