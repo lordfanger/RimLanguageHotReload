@@ -1,4 +1,6 @@
-﻿using Verse;
+﻿using RimWorld;
+using System.Linq;
+using Verse;
 
 namespace LordFanger
 {
@@ -23,11 +25,29 @@ namespace LordFanger
         private void ClearCache()
         {
             if (!_clearCache) return;
-            DefDatabase<DesignationCategoryDef>.AllDefsListForReading.ForEach(def => Util.SafeExecute(() =>
+            try
             {
-                def.InvokeInstanceMethod("ResolveDesignators");
-            }));
-            _clearCache = false;
+                DefDatabase<DesignationCategoryDef>.AllDefsListForReading.ForEach(def => Util.SafeExecute(() =>
+                {
+                    def.InvokeInstanceMethod("ResolveDesignators");
+                }));
+
+                // reopen rename dialog
+                Util.SafeExecute(
+                    () =>
+                    {
+                        var windowStack = Find.WindowStack;
+                        if (!(windowStack.Windows.FirstOrDefault(w => w is Dialog_NamePawn) is Dialog_NamePawn renameDialog)) return;
+                        var pawn = renameDialog.GetInstanceFieldValue<Pawn>("pawn");
+                        if (pawn == null) return;
+                        windowStack.TryRemove(renameDialog.GetType(), false);
+                        windowStack.Add(pawn.NamePawnDialog());
+                    });
+            }
+            finally
+            {
+                _clearCache = false;
+            }
         }
     }
 }
