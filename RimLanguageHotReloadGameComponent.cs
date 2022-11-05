@@ -43,6 +43,13 @@ namespace LordFanger
                         windowStack.TryRemove(renameDialog.GetType(), false);
                         windowStack.Add(pawn.NamePawnDialog());
                     });
+
+                // clear tips for research projects
+                DefDatabase<ResearchProjectDef>.AllDefsListForReading.ForEach(def => Util.SafeExecute(
+                    () =>
+                    {
+                        def.ClearInstanceField("cachedTip");
+                    }));
             }
             finally
             {
