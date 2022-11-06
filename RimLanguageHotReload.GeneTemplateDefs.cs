@@ -10,15 +10,15 @@ namespace LordFanger
     {
         private class GeneTemplateDefs : TemplateDefs<GeneTemplateDef, GeneDef>
         {
-            private static MethodInfo _templater = typeof(GeneDefGenerator).GetRuntimeMethods().First(m => m.Name == "GetFromTemplate");
-            private ISet<SkillDef> _changedSkills = new HashSet<SkillDef>();
-            private ISet<ChemicalDef> _changedChemicals = new HashSet<ChemicalDef>();
-            private ISet<GeneTemplateDef> _changedTemplates = new HashSet<GeneTemplateDef>();
-            private IDictionary<SkillDef, IList<GeneDef>> _geneDefsBySkill = new Dictionary<SkillDef, IList<GeneDef>>();
-            private IDictionary<ChemicalDef, IList<GeneDef>> _geneDefsByChemical = new Dictionary<ChemicalDef, IList<GeneDef>>();
-            private IDictionary<GeneTemplateDef, IList<GeneDef>> _geneDefsByTemplate = new Dictionary<GeneTemplateDef, IList<GeneDef>>();
-            private IDictionary<GeneDef, GeneTemplateDef> _templateByGene = new Dictionary<GeneDef, GeneTemplateDef>();
-            private IDictionary<GeneDef, Def> _secondaryDef = new Dictionary<GeneDef, Def>();
+            private static readonly MethodInfo _templater = typeof(GeneDefGenerator).GetRuntimeMethods().First(m => m.Name == "GetFromTemplate");
+            private readonly ISet<SkillDef> _changedSkills = new HashSet<SkillDef>();
+            private readonly ISet<ChemicalDef> _changedChemicals = new HashSet<ChemicalDef>();
+            private readonly ISet<GeneTemplateDef> _changedTemplates = new HashSet<GeneTemplateDef>();
+            private readonly IDictionary<SkillDef, IList<GeneDef>> _geneDefsBySkill = new Dictionary<SkillDef, IList<GeneDef>>();
+            private readonly IDictionary<ChemicalDef, IList<GeneDef>> _geneDefsByChemical = new Dictionary<ChemicalDef, IList<GeneDef>>();
+            private readonly IDictionary<GeneTemplateDef, IList<GeneDef>> _geneDefsByTemplate = new Dictionary<GeneTemplateDef, IList<GeneDef>>();
+            private readonly IDictionary<GeneDef, GeneTemplateDef> _templateByGene = new Dictionary<GeneDef, GeneTemplateDef>();
+            private readonly IDictionary<GeneDef, Def> _secondaryDef = new Dictionary<GeneDef, Def>();
 
             protected override bool CanRegisterImpliedDef(GeneDef geneDef) => TryGetDefs(geneDef, out _);
 

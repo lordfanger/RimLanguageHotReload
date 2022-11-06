@@ -24,7 +24,7 @@ namespace LordFanger
     {
         private static readonly IDictionary<string, string> _tkeyToDefPath = new Dictionary<string, string>();
 
-        private static readonly IDictionary<DefUniqueKey, Def> _definitions = new Dictionary<DefUniqueKey, Def>();
+        private static readonly IDictionary<DefUniqueKey, IList<Def>> _definitions = new Dictionary<DefUniqueKey, IList<Def>>();
 
         private static readonly IDictionary<KeyedUniqueKey, LoadedLanguage.KeyedReplacement> _keyed = new Dictionary<KeyedUniqueKey, LoadedLanguage.KeyedReplacement>();
 
@@ -80,14 +80,22 @@ namespace LordFanger
                                     var defName = def.defName;
 
                                     var key = new DefUniqueKey(defName, Path.GetFileNameWithoutExtension(fileName), directoryName);
-                                    if (!_definitions.ContainsKey(key))
+                                    if (!_definitions.TryGetValue(key, out var defList))
                                     {
-                                        _definitions.Add(key, def); // todo compare if equals
-                                        _templateDefsResolver.AddImpliedDefIfAny(def);
+                                        defList = new List<Def>();
+                                        _definitions.Add(key, defList);
                                     }
+                                    defList.Add(def);
                                 }
                             });
                     }
+
+                    // register implied defs
+                    foreach (var def in _definitions.Values.SelectMany(d => d))
+                    {
+                        _templateDefsResolver.AddImpliedDefIfAny(def);
+                    }
+
                     Message("Definitions loaded.");
                 });
         }
@@ -276,12 +284,15 @@ namespace LordFanger
         {
             var fieldPath = fieldPathRaw.Split('.');
 
-            if (!_definitions.TryGetValue(new DefUniqueKey(defName, file, directoryName), out var def))
+            if (!_definitions.TryGetValue(new DefUniqueKey(defName, file, directoryName), out var defs))
             {
                 return;
             }
 
-            UpdateDefinitionFieldByPath(def, fieldPath[0], fieldPath, 1, item, null);
+            foreach (var def in defs)
+            {
+                UpdateDefinitionFieldByPath(def, fieldPath[0], fieldPath, 1, item, null);
+            }
         }
 
         private static void UpdateDefinitionFieldByPath(object obj, string fieldName, string[] fieldPath, int fieldPathOffset, XElement item, Attribute[] fieldAttributes)
@@ -740,6 +751,16 @@ namespace LordFanger
 
             // clear cache from main thread
             Current.Game.GetComponent<RimLanguageHotReloadGameComponent>().InvalidateCache();
+
+            // clear cached detailed descriptions
+            Util.SafeExecute(
+                () =>
+                {
+                    foreach (var def in _definitions.Values.SelectMany(d => d))
+                    {
+                        Util.SafeExecute(() => def.ClearInstanceField("descriptionDetailedCached"));
+                    }
+                });
         }
     }
 }
