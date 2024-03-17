@@ -222,16 +222,22 @@ namespace LordFanger
             return fieldsByName;
         }
 
-        public static object InvokeInstanceMethod(this object instance, string method, params object[] arguments)
+        public static MethodInfo GetInstanceMethod(Type type, string methodName)
         {
-            var type = instance.GetType();
             if (!_cachedInstanceMethods.TryGetValue(type, out var methods))
             {
                 methods = type.GetRuntimeMethods().ToArray();
                 _cachedInstanceMethods[type] = methods;
             }
-            
-            var result = methods.FirstOrDefault(m => m.Name == method)?.Invoke(instance, arguments ?? Array.Empty<object>());
+
+            var method = methods.FirstOrDefault(m => m.Name == methodName);
+            return method;
+        }
+
+        public static object InvokeInstanceMethod(this object instance, string method, params object[] arguments)
+        {
+            var type = instance.GetType();
+            var result = GetInstanceMethod(type, method)?.Invoke(instance, arguments ?? Array.Empty<object>());
             return result;
         }
 

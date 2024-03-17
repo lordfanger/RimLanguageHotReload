@@ -6,7 +6,7 @@
 		<RootNamespace>LordFanger</RootNamespace>
     <!-- Folder where RimWolrd is eg. C:\Program Files (x86)\Steam\steamapps\common\RimWorld\ -->
     <RimWorldSteamFolder Condition="'$(RimWorldSteamFolder)' == ''">C:\Program Files (x86)\Steam\steamapps\common\RimWorld\</RimWorldSteamFolder>
-    <RimWorldVersion Condition="'$(RimWorldVersion)' == ''">1.4</RimWorldVersion>
+    <RimWorldVersion Condition="'$(RimWorldVersion)' == ''">1.5</RimWorldVersion>
 	</PropertyGroup>
 
 	<ItemGroup>

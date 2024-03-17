@@ -186,6 +186,7 @@ namespace LordFanger
             }
 
             if (filePaths.Length == 0) return;
+            Message($"Updating changed files ({filePaths.Length})");
             UpdateFiles(filePaths.AsFiles());
             ClearCaches();
         }
@@ -361,6 +362,7 @@ namespace LordFanger
             }
 
             var fieldsByName = Util.GetTypeInstanceFieldsByName(objType);
+            Message($"Setting new value {string.Join(", ", fieldPath)} '{oldValue}'->'{newValue}'");
             fieldInfo.SetValue(obj, newValue);
             TryClearCachedValue(obj, fieldName.ToCachedName(), item, fieldsByName);
             TryClearCachedValue(obj, fieldName.ToCachedName() + "Cap", item, fieldsByName);
@@ -503,6 +505,7 @@ namespace LordFanger
                 return;
             }
 
+            Message($"Updating keyed {keyed.key} '{keyed.value}' -> '{newValue}'");
             keyed.value = newValue;
             keyed.isPlaceholder = string.IsNullOrWhiteSpace(newValue);
         }
@@ -761,6 +764,52 @@ namespace LordFanger
                         Util.SafeExecute(() => def.ClearInstanceField("descriptionDetailedCached"));
                     }
                 });
+
+            // clear ideo precepts cache
+            Util.SafeExecute(() =>
+            {
+                foreach (var ideo in Find.IdeoManager.IdeosInViewOrder)
+                {
+                    foreach (var item in ideo.PreceptsListForReading.OfType<Precept_Ritual>())
+                    {
+                        var groupTag = item.patternGroupTag ?? item.def.ritualPatternBase?.patternGroupTag;
+                        var ritualPatternDef = DefDatabase<RitualPatternDef>.AllDefs
+                            .Where(d => d.patternGroupTag == groupTag && !ideo.PreceptsListForReading.OfType<Precept_Ritual>().Any(p => p.behavior != null && p.sourcePattern == d))
+                            .RandomElementWithFallback();
+                        ritualPatternDef?.Fill(item);
+                    }
+                }
+            });
+
+            // refresh generated books descriptions
+            Util.SafeExecute(() =>
+            {
+                var descCanBeInvalidatedField = Util.GetInstanceField(typeof(Book), "descCanBeInvalidated");
+                var ensureDescriptionUpToDateMethod = Util.GetInstanceMethod(typeof(Book), "EnsureDescriptionUpToDate");
+                var thingRequest = ThingRequest.ForGroup(ThingRequestGroup.Book);
+                var thingList = new List<Thing>();
+                foreach (var book in Find.Maps
+                             .SelectMany(map =>
+                             {
+                                 ThingOwnerUtility.GetAllThingsRecursively(map, thingRequest, thingList);
+                                 return thingList;
+                             })
+                             .Select(thing => thing as Book)
+                             .Where(book => book != null)
+                         )
+                {
+                    var oldFlag = (bool)descCanBeInvalidatedField.GetValue(book);
+                    if (oldFlag != true)
+                    {
+                        descCanBeInvalidatedField.SetValue(book, true);
+                    }
+                    ensureDescriptionUpToDateMethod.Invoke(book, Array.Empty<object>());
+                    if (oldFlag != true)
+                    {
+                        descCanBeInvalidatedField.SetValue(book, false);
+                    }
+                }
+            });
         }
     }
 }
