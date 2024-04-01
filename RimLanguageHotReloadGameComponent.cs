@@ -1,4 +1,6 @@
-﻿using RimWorld;
+﻿using System;
+using System.Collections.Generic;
+using RimWorld;
 using System.Linq;
 using Verse;
 
@@ -50,6 +52,32 @@ namespace LordFanger
                     {
                         def.ClearInstanceField("cachedTip");
                     }));
+
+                // refresh generated books titles and descriptions
+                Util.SafeExecute(() =>
+                {
+                    var mentalBreakChancePerHourField = Util.GetInstanceField(typeof(Book), "mentalBreakChancePerHour");
+                    var thingRequest = ThingRequest.ForGroup(ThingRequestGroup.Book);
+                    var thingList = new List<Thing>();
+                    foreach (var book in Find.Maps
+                                 .SelectMany(map =>
+                                 {
+                                     ThingOwnerUtility.GetAllThingsRecursively(map, thingRequest, thingList);
+                                     return thingList;
+                                 })
+                                 .Select(thing => thing as Book)
+                                 .Where(book => book != null)
+                            )
+                    {
+                        Util.SafeExecute(() =>
+                        {
+                            var oldValue = mentalBreakChancePerHourField.GetValue(book);
+                            book.GenerateBook();
+                            mentalBreakChancePerHourField.SetValue(book, oldValue);
+                        });
+                    }
+                });
+
             }
             finally
             {

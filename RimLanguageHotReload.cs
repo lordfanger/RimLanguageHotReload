@@ -781,34 +781,10 @@ namespace LordFanger
                 }
             });
 
-            // refresh generated books descriptions
+            // clear cached activities string
             Util.SafeExecute(() =>
             {
-                var descCanBeInvalidatedField = Util.GetInstanceField(typeof(Book), "descCanBeInvalidated");
-                var ensureDescriptionUpToDateMethod = Util.GetInstanceMethod(typeof(Book), "EnsureDescriptionUpToDate");
-                var thingRequest = ThingRequest.ForGroup(ThingRequestGroup.Book);
-                var thingList = new List<Thing>();
-                foreach (var book in Find.Maps
-                             .SelectMany(map =>
-                             {
-                                 ThingOwnerUtility.GetAllThingsRecursively(map, thingRequest, thingList);
-                                 return thingList;
-                             })
-                             .Select(thing => thing as Book)
-                             .Where(book => book != null)
-                         )
-                {
-                    var oldFlag = (bool)descCanBeInvalidatedField.GetValue(book);
-                    if (oldFlag != true)
-                    {
-                        descCanBeInvalidatedField.SetValue(book, true);
-                    }
-                    ensureDescriptionUpToDateMethod.Invoke(book, Array.Empty<object>());
-                    if (oldFlag != true)
-                    {
-                        descCanBeInvalidatedField.SetValue(book, false);
-                    }
-                }
+                Util.GetStaticField(typeof(Need_Learning), "learningActivitiesLineList").SetValue(null, null);
             });
         }
     }
