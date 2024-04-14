@@ -762,6 +762,12 @@ namespace LordFanger
                     foreach (var def in _definitions.Values.SelectMany(d => d))
                     {
                         Util.SafeExecute(() => def.ClearInstanceField("descriptionDetailedCached"));
+
+                        // clear cached labels for void provocation ritual
+                        if (def is PsychicRitualDef_InvocationCircle)
+                        {
+                            Util.SafeExecute(() => def.ClearInstanceField("timeAndOfferingLabelCached"));
+                        }
                     }
                 });
 
