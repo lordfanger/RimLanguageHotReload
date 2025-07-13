@@ -1,4 +1,4 @@
-﻿using LordFanger.IO;
+using LordFanger.IO;
 using RimWorld;
 using RimWorld.IO;
 using System;
@@ -22,6 +22,8 @@ namespace LordFanger
     [StaticConstructorOnStartup]
     public static partial class RimLanguageHotReload
     {
+        private static LoadedLanguage _cachedLanguage;
+        
         private static readonly IDictionary<string, string> _tkeyToDefPath = new Dictionary<string, string>();
 
         private static readonly IDictionary<DefUniqueKey, IList<Def>> _definitions = new Dictionary<DefUniqueKey, IList<Def>>();
@@ -42,6 +44,7 @@ namespace LordFanger
 
         static RimLanguageHotReload()
         {
+            _cachedLanguage = ActiveLanguage;
             LoadDefinitions();
             LoadKeyed();
             LoadTKeys();
@@ -54,6 +57,21 @@ namespace LordFanger
             });
         }
 
+        private static void CheckChangedLanguage()
+        {
+            if (ReferenceEquals(ActiveLanguage, _cachedLanguage)) return;
+            
+            Message($"Reloading data for new active language. ({ActiveLanguage.DisplayName})");
+            _cachedLanguage = ActiveLanguage;
+            _definitions.Clear();
+            LoadDefinitions();
+            ReloadKeyed();
+            _tkeyToDefPath.Clear();
+            LoadTKeys();
+            _languageDirectories.Clear();
+            LoadDirectories();
+        }
+        
         private static void LoadDefinitions()
         {
             Util.SafeExecute(
@@ -179,6 +197,7 @@ namespace LordFanger
 
         private static void UpdateChangedFiles()
         {
+            CheckChangedLanguage();
             var filePaths = _changedFiles.Keys.ToArray();
             foreach (var filePath in filePaths)
             {
