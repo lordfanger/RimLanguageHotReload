@@ -23,7 +23,7 @@ namespace LordFanger
     public static partial class RimLanguageHotReload
     {
         private static LoadedLanguage _cachedLanguage;
-        
+
         private static readonly IDictionary<string, string> _tkeyToDefPath = new Dictionary<string, string>();
 
         private static readonly IDictionary<DefUniqueKey, IList<Def>> _definitions = new Dictionary<DefUniqueKey, IList<Def>>();
@@ -60,7 +60,7 @@ namespace LordFanger
         private static void CheckChangedLanguage()
         {
             if (ReferenceEquals(ActiveLanguage, _cachedLanguage)) return;
-            
+
             Message($"Reloading data for new active language. ({ActiveLanguage.DisplayName})");
             _cachedLanguage = ActiveLanguage;
             _definitions.Clear();
@@ -71,7 +71,7 @@ namespace LordFanger
             _languageDirectories.Clear();
             LoadDirectories();
         }
-        
+
         private static void LoadDefinitions()
         {
             Util.SafeExecute(
@@ -456,40 +456,40 @@ namespace LordFanger
             }
 
             var match = Regex.Match(fieldName, @"^(?<NAME>.+?)(\-(?<INDEX>\d+))?$");
-            var untranslantedName = match.Groups["NAME"].Value;
-            var untranslantedIndex = 0;
+            var untranslatedName = match.Groups["NAME"].Value;
+            var untranslatedIndex = 0;
             var validItemIndex = 0;
-            if (match.Groups["INDEX"].Success) untranslantedIndex = int.Parse(match.Groups["INDEX"].Value);
+            if (match.Groups["INDEX"].Success) untranslatedIndex = int.Parse(match.Groups["INDEX"].Value);
             foreach (var collectionItem in collection)
             {
                 if (collectionItem == null) continue;
 
-                var untranslantedFields = Util.GetTypeUntranslantedFieldsWithAttributes(collectionItem.GetType());
-                foreach (var untranslantedField in untranslantedFields)
+                var untranslatedFields = Util.GetTypeUntranslantedFieldsWithAttributes(collectionItem.GetType());
+                foreach (var untranslatedField in untranslatedFields)
                 {
-                    var rawValueForTranslation = untranslantedField.FieldInfo.GetValue(collectionItem);
+                    var rawValueForTranslation = untranslatedField.FieldInfo.GetValue(collectionItem);
                     var valueForTranslation = (rawValueForTranslation as string).ToNormalizedHandle();
                     if (valueForTranslation == null && rawValueForTranslation is Def def) valueForTranslation = def.defName;
 
                     if (valueForTranslation == null && rawValueForTranslation is Type type)
                     {
                         valueForTranslation = type.Name.ToNormalizedHandle();
-                        if (valueForTranslation != untranslantedName)
+                        if (valueForTranslation != untranslatedName)
                         {
                             valueForTranslation = type.FullName.ToNormalizedHandle();
-                            if (valueForTranslation != untranslantedName) continue;
+                            if (valueForTranslation != untranslatedName) continue;
                         }
                     }
-                    else if (valueForTranslation != untranslantedName) continue;
+                    else if (valueForTranslation != untranslatedName) continue;
 
-                    // index of valid item by untranslanted
-                    if (untranslantedIndex != validItemIndex)
+                    // index of valid item by untranslated
+                    if (untranslatedIndex != validItemIndex)
                     {
                         validItemIndex++;
                         continue;
                     }
 
-                    UpdateDefinitionFieldByPath(collectionItem, fieldPath[fieldPathOffset], fieldPath, fieldPathOffset + 1, item, untranslantedField.Attributes);
+                    UpdateDefinitionFieldByPath(collectionItem, fieldPath[fieldPathOffset], fieldPath, fieldPathOffset + 1, item, untranslatedField.Attributes);
                     return true;
                 }
             }
@@ -665,25 +665,14 @@ namespace LordFanger
 
         private static void ClearCaches()
         {
-            // label cache
-            GenLabel.ClearCache();
-
-            // art tab cache
-            Util.ClearStaticField(typeof(ITab_Art), "cachedImageDescription");
-            Util.ClearStaticField(typeof(ITab_Art), "cachedImageSource");
-            Util.ClearStaticField(typeof(ITab_Art), "cachedTaleRef");
-
-            // cache for colorization
-            ColoredText.ClearCache();
-            ColoredText.ResetStaticData();
-
-            // designators cache
-            Find.ReverseDesignatorDatabase.Reinit();
-
             // cache only in game
             if (Current.Game.Maps.Count > 0)
             {
                 ClearInGameCaches();
+            }
+            else
+            {
+                CleanStaticCache();
             }
 
             // rewrite templated defs if needed
@@ -692,43 +681,7 @@ namespace LordFanger
 
         private static void ClearInGameCaches()
         {
-            // log entry cache
-            var cachedStringField = Util.GetInstanceField(typeof(LogEntry), "cachedString");
-            var cachedStringPovField = Util.GetInstanceField(typeof(LogEntry), "cachedStringPov");
-            var cachedHeightWidthField = Util.GetInstanceField(typeof(LogEntry), "cachedHeightWidth");
-            var cachedHeightField = Util.GetInstanceField(typeof(LogEntry), "cachedHeight");
-            foreach (var entry in Find.PlayLog.AllEntries)
-            {
-                cachedStringField.SetValue(entry, null);
-                cachedStringPovField.SetValue(entry, null);
-                cachedHeightWidthField.SetValue(entry, null);
-                cachedHeightField.SetValue(entry, null);
-            }
-
-            // memory thoughts
-            var cachedLabelCapField = Util.GetInstanceField(typeof(Thought_Memory), "cachedLabelCap");
-            foreach (var pawn in Find.Maps.Select(m => m.mapPawns.AllPawns).Concat(Find.WorldPawns.AllPawnsAliveOrDead).SelectMany(p => p))
-            {
-                foreach (var memory in (IReadOnlyList<Thought_Memory>)pawn.needs?.mood?.thoughts?.memories?.Memories ?? Array.Empty<Thought_Memory>())
-                {
-                    var cachedValue = cachedLabelCapField.GetValue(memory);
-                    if (cachedValue == null) continue;
-                    cachedLabelCapField.SetValue(memory, null);
-                }
-            }
-
-            // stats in info dialog
-            var newEntryList = new List<StatDrawEntry>();
-            var drawEntriesField = Util.GetStaticField(typeof(StatsReportUtility), "cachedDrawEntries");
-            var oldEntryList = (List<StatDrawEntry>)drawEntriesField.GetValue(null);
-            drawEntriesField.SetValue(null, newEntryList);
-            // dispose later, whan should not by in use
-            Task.Run(
-                async () =>
-                {
-                    await Task.Delay(500);
-                    oldEntryList.Clear();
-                });
+            // TODO DrawPawnRoleSelection
 
             // clear cached lights texts
             var mouseoverReadout = Find.MapUI.GetInstanceFieldValue<MouseoverReadout>("mouseoverReadout");
@@ -745,72 +698,49 @@ namespace LordFanger
                     var alertsReadout = ((UIRoot_Play)Find.UIRoot).alerts;
                     var allAlerts = alertsReadout.GetInstanceFieldValue<List<Alert>>("AllAlerts");
 
-                    // recreate all alerts
-                    // TODO can be dangerous for some cached fields, that will not be initialized properlly
-                    // TODO maybe can be enough copy all string values (namely defaultLabel and defaultExplanation
-                    for (var i = 0; i < allAlerts.Count; i++)
+                    // force alerts to recalculate
+                    foreach (var alert in allAlerts)
                     {
-                        var alert = allAlerts[i];
-                        var alertType = alert.GetType();
-                        var newAlert = (Alert)Activator.CreateInstance(alertType);
-                        allAlerts[i] = newAlert;
+                        alert.Recalculate();
                     }
-
-                    // remove old alerts
-                    var oldAlerts = alertsReadout.GetInstanceFieldValue<List<Alert>>("activeAlerts");
-                    oldAlerts.Clear();
-
-                    // remove cached precept alerts
-                    var oldPreceptAlerts = alertsReadout.GetInstanceFieldValue<Dictionary<Precept, List<Alert>>>("activePreceptAlerts");
-                    oldPreceptAlerts.Clear();
-
-                    // reload active alerts from new ones
-                    alertsReadout.AlertsReadoutUpdate();
                 });
-
-            // clear cached date
-            DateReadout.Reset();
 
             // clear cache from main thread
-            Current.Game.GetComponent<RimLanguageHotReloadGameComponent>().InvalidateCache();
-
-            // clear cached detailed descriptions
-            Util.SafeExecute(
-                () =>
-                {
-                    foreach (var def in _definitions.Values.SelectMany(d => d))
-                    {
-                        Util.SafeExecute(() => def.ClearInstanceField("descriptionDetailedCached"));
-
-                        // clear cached labels for void provocation ritual
-                        if (def is PsychicRitualDef_InvocationCircle)
-                        {
-                            Util.SafeExecute(() => def.ClearInstanceField("timeAndOfferingLabelCached"));
-                        }
-                    }
-                });
-
-            // clear ideo precepts cache
-            Util.SafeExecute(() =>
+            var clearCacheContext = new ClearCacheContext()
             {
-                foreach (var ideo in Find.IdeoManager.IdeosInViewOrder)
-                {
-                    foreach (var item in ideo.PreceptsListForReading.OfType<Precept_Ritual>())
-                    {
-                        var groupTag = item.patternGroupTag ?? item.def.ritualPatternBase?.patternGroupTag;
-                        var ritualPatternDef = DefDatabase<RitualPatternDef>.AllDefs
-                            .Where(d => d.patternGroupTag == groupTag && !ideo.PreceptsListForReading.OfType<Precept_Ritual>().Any(p => p.behavior != null && p.sourcePattern == d))
-                            .RandomElementWithFallback();
-                        ritualPatternDef?.Fill(item);
-                    }
-                }
-            });
+                Definitions = _definitions.Values.SelectMany(d => d).ToArray(),
+                Ideos = Find.IdeoManager.IdeosInViewOrder.ToArray(),
+                CleanAction = CleanStaticCache
+            };
 
-            // clear cached activities string
-            Util.SafeExecute(() =>
-            {
-                Util.GetStaticField(typeof(Need_Learning), "learningActivitiesLineList").SetValue(null, null);
-            });
+            Current.Game.GetComponent<RimLanguageHotReloadGameComponent>().InvalidateCache(clearCacheContext);
+        }
+
+        private static void CleanStaticCache()
+        {
+            // label cache
+            GenLabel.ClearCache();
+
+            // art tab cache
+            Util.ClearStaticField(typeof(ITab_Art), "cachedImageDescription");
+            Util.ClearStaticField(typeof(ITab_Art), "cachedImageSource");
+            Util.ClearStaticField(typeof(ITab_Art), "cachedTaleRef");
+
+            // cache for colorization
+            ColoredText.ClearCache();
+            ColoredText.ResetStaticData();
+
+            // designators cache
+            Find.ReverseDesignatorDatabase.Reinit();
+        }
+
+        public class ClearCacheContext
+        {
+            public Def[] Definitions { get; set; }
+
+            public Ideo[] Ideos { get; set; }
+
+            public Action CleanAction { get; set; }
         }
     }
 }
